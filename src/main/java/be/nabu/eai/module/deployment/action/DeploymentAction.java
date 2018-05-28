@@ -1,4 +1,4 @@
-package be.nabu.eai.module.deployment.runner;
+package be.nabu.eai.module.deployment.action;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -6,6 +6,8 @@ import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.text.ParseException;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.artifacts.jaxb.JAXBArtifact;
@@ -16,8 +18,10 @@ import be.nabu.libs.resources.api.Resource;
 import be.nabu.libs.resources.api.ResourceContainer;
 import be.nabu.libs.resources.api.WritableResource;
 import be.nabu.libs.services.ServiceRuntime;
+import be.nabu.libs.services.ServiceUtils;
 import be.nabu.libs.services.api.DefinedService;
 import be.nabu.libs.services.api.ServiceException;
+import be.nabu.libs.services.api.ServiceResult;
 import be.nabu.libs.types.TypeUtils;
 import be.nabu.libs.types.api.ComplexContent;
 import be.nabu.libs.types.api.Element;
@@ -36,12 +40,13 @@ public class DeploymentAction extends JAXBArtifact<DeploymentActionConfiguration
 
 	// we run the source service with the (optionally) configured input
 	// and we save the output in the resource folder so it is included in the build
-	public void runSource() throws IOException, ServiceException {
+	public void runSource() throws IOException, ServiceException, InterruptedException, ExecutionException {
 		Resource state = getDirectory().getChild("state.xml");
 		DefinedService source = getConfig().getSource();
 		DefinedService target = getConfig().getTarget();
 		if (source != null && target != null) {
 			ServiceRuntime serviceRuntime = new ServiceRuntime(source, getRepository().newExecutionContext(SystemPrincipal.ROOT));
+			ServiceUtils.setServiceContext(serviceRuntime, getId());
 			ComplexContent input = source.getServiceInterface().getInputDefinition().newInstance();
 			Map<String, String> properties = getConfig().getProperties();
 			if (properties != null) {
@@ -49,7 +54,12 @@ public class DeploymentAction extends JAXBArtifact<DeploymentActionConfiguration
 					input.set(key, properties.get(key));
 				}
 			}
-			ComplexContent output = serviceRuntime.run(input);
+			Future<ServiceResult> run = getRepository().getServiceRunner().run(source, getRepository().newExecutionContext(SystemPrincipal.ROOT), input);
+			ServiceResult serviceResult = run.get();
+			if (serviceResult.getException() != null) {
+				throw serviceResult.getException();
+			}
+			ComplexContent output = serviceResult.getOutput();
 			
 			// we now map the output of the source to the input of the target
 			ComplexContent targetInput = target.getServiceInterface().getInputDefinition().newInstance();
@@ -94,8 +104,10 @@ public class DeploymentAction extends JAXBArtifact<DeploymentActionConfiguration
 			else {
 				input = target.getServiceInterface().getInputDefinition().newInstance();
 			}
-			ServiceRuntime serviceRuntime = new ServiceRuntime(target, getRepository().newExecutionContext(SystemPrincipal.ROOT));
-			serviceRuntime.run(input);
+			// can't set service context this way :'(
+			// it has to be done though cause it has to run on the server, not the developer (even if he is coordinating it)
+			// technically speaking the runTarget "should" be run by the server, not the developer (unlike runSource) but still...
+			getRepository().getServiceRunner().run(target, getRepository().newExecutionContext(SystemPrincipal.ROOT), input);
 		}
 	}
 }

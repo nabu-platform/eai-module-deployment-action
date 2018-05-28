@@ -1,4 +1,4 @@
-package be.nabu.eai.module.deployment.runner;
+package be.nabu.eai.module.deployment.action;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

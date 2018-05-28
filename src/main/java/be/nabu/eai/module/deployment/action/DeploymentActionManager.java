@@ -1,4 +1,4 @@
-package be.nabu.eai.module.deployment.runner;
+package be.nabu.eai.module.deployment.action;
 
 import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.managers.base.JAXBArtifactManager;

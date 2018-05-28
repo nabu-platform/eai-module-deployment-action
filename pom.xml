@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>nabu</groupId>
 	<artifactId>eai-module-deployment-action</artifactId>
-	<version>1.0-SNAPSHOT</version>
+	<version>${nabu-eai-module-deployment-action-version}</version>
 	<name>eai-module-deployment-action</name>
 	<url>http://nabu.be</url>
 
