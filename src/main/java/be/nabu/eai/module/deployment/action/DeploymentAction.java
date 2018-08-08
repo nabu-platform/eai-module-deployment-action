@@ -9,6 +9,9 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.artifacts.jaxb.JAXBArtifact;
 import be.nabu.eai.repository.util.SystemPrincipal;
@@ -34,6 +37,8 @@ import be.nabu.utils.io.api.WritableContainer;
 
 public class DeploymentAction extends JAXBArtifact<DeploymentActionConfiguration> {
 
+	private Logger logger = LoggerFactory.getLogger(getClass());
+	
 	public DeploymentAction(String id, ResourceContainer<?> directory, Repository repository) {
 		super(id, directory, repository, "deployment-runner.xml", DeploymentActionConfiguration.class);
 	}
@@ -91,6 +96,7 @@ public class DeploymentAction extends JAXBArtifact<DeploymentActionConfiguration
 			Resource state = getDirectory().getChild("state.xml");
 			ComplexContent input;
 			if (state != null) {
+				logger.info("Running target with state: " + target.getId());
 				XMLBinding binding = new XMLBinding(target.getServiceInterface().getInputDefinition(), Charset.forName("UTF-8"));
 				ReadableContainer<ByteBuffer> readable = ((ReadableResource) state).getReadable();
 				InputStream inputStream = IOUtils.toInputStream(readable);
@@ -103,11 +109,15 @@ public class DeploymentAction extends JAXBArtifact<DeploymentActionConfiguration
 			}
 			else {
 				input = target.getServiceInterface().getInputDefinition().newInstance();
+				logger.info("Running target stateless: " + target.getId());
 			}
 			// can't set service context this way :'(
 			// it has to be done though cause it has to run on the server, not the developer (even if he is coordinating it)
 			// technically speaking the runTarget "should" be run by the server, not the developer (unlike runSource) but still...
 			getRepository().getServiceRunner().run(target, getRepository().newExecutionContext(SystemPrincipal.ROOT), input);
+		}
+		else {
+			logger.error("Could not find target of deployment action: " + getId());
 		}
 	}
 }
